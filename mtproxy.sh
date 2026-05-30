@@ -43,7 +43,6 @@ function install_mtproxy() {
     apt update
     apt install -y git curl build-essential libssl-dev zlib1g-dev libcap2-bin
 
-    # FIX: Always remove old source folder to avoid git clone errors
     rm -rf MTProxy
 
     git clone https://github.com/hesiadmin-maker/MTProxy
@@ -93,8 +92,7 @@ ExecStart=$BINARY \\
   --aes-pwd proxy-secret proxy-multi.conf \\
   -P $TAG \\
   -M $WORKERS \\
-  -D $TLS_DOMAIN \\
-  -Z 1-12
+  -D $TLS_DOMAIN
 
 Restart=always
 RestartSec=2
