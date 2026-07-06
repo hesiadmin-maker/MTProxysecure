@@ -8,7 +8,7 @@ function install_mtproxy() {
     clear
     echo "=== MTProxy Installation ==="
 
-    PORT=9999
+    PORT=8888
 
     read -p "Port: " HVAL
     if ! [[ $HVAL =~ ^[0-9]+$ ]]; then
@@ -44,7 +44,7 @@ function install_mtproxy() {
 
     rm -rf MTProxy
 
-    git clone https://github.com/hesiadmin-maker/MTProxy
+    git clone https://github.com/telegramMessenger/MTProxy
     cd MTProxy
     make
     cd objs/bin
@@ -63,17 +63,17 @@ function install_mtproxy() {
 
     if ! grep -q "^mtproxy soft nofile" /etc/security/limits.conf; then
 cat >> /etc/security/limits.conf <<EOF
-mtproxy soft nofile 300000
-mtproxy hard nofile 300000
+mtproxy soft nofile 2097152
+mtproxy hard nofile 2097152
 EOF
     fi
 
-    sed -i 's/^#DefaultLimitNOFILE=.*/DefaultLimitNOFILE=300000/' /etc/systemd/system.conf
-    sed -i 's/^#DefaultLimitNOFILE=.*/DefaultLimitNOFILE=300000/' /etc/systemd/user.conf
+    sed -i 's/^#DefaultLimitNOFILE=.*/DefaultLimitNOFILE=2097152/' /etc/systemd/system.conf
+    sed -i 's/^#DefaultLimitNOFILE=.*/DefaultLimitNOFILE=2097152/' /etc/systemd/user.conf
 
 cat > $SERVICE_FILE <<EOF
 [Unit]
-Description=MTProto Proxy Service (Hardened)
+Description=MTProto Proxy Service
 After=network-online.target
 Wants=network-online.target
 
@@ -91,36 +91,12 @@ ExecStart=$BINARY \\
   --aes-pwd proxy-secret proxy-multi.conf \\
   -P $TAG \\
   -M $WORKERS \\
+  -C 2097152
   -D $TLS_DOMAIN
 
 Restart=always
-RestartSec=2
-
-CapabilityBoundingSet=CAP_NET_BIND_SERVICE
-AmbientCapabilities=CAP_NET_BIND_SERVICE
-SecureBits=keep-caps
-
-LimitNOFILE=300000
-NoNewPrivileges=true
-PrivateTmp=true
-PrivateDevices=true
-ProtectSystem=strict
-ProtectHome=true
-ProtectKernelModules=true
-ProtectKernelTunables=true
-ProtectControlGroups=true
-RestrictRealtime=true
-RestrictSUIDSGID=true
-LockPersonality=true
-MemoryDenyWriteExecute=true
-
-RestrictAddressFamilies=AF_INET AF_INET6
-
-SystemCallFilter=@system-service
-SystemCallFilter=~@privileged @resources
-
-ReadOnlyPaths=$INSTALL_DIR
-ReadWritePaths=$INSTALL_DIR/proxy-secret $INSTALL_DIR/proxy-multi.conf
+RestartSec=1
+LimitNOFILE=2097152
 
 [Install]
 WantedBy=multi-user.target
