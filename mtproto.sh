@@ -63,8 +63,8 @@ function install_mtproxy() {
 
     if ! grep -q "^mtproxy soft nofile" /etc/security/limits.conf; then
 cat >> /etc/security/limits.conf <<EOF
-mtproxy soft nofile 2097152
-mtproxy hard nofile 2097152
+mtproxy soft nofile 1048576
+mtproxy hard nofile 1048576
 EOF
     fi
 
@@ -91,12 +91,12 @@ ExecStart=$BINARY \\
   --aes-pwd proxy-secret proxy-multi.conf \\
   -P $TAG \\
   -M $WORKERS \\
-  -C 2097152 \\
+  -c 1048576 \\
   -D $TLS_DOMAIN
 
 Restart=always
 RestartSec=1
-LimitNOFILE=2097152
+LimitNOFILE=1048576
 
 [Install]
 WantedBy=multi-user.target
