@@ -18,14 +18,14 @@ Type=oneshot
 ExecStart=/usr/local/bin/auto-reboot.sh
 EOF
 
-# Create systemd timer
+# Create systemd timer (1 hour)
 cat << 'EOF' > /etc/systemd/system/auto-reboot.timer
 [Unit]
-Description=Reboot every 5 hours
+Description=Reboot every 1 hour
 
 [Timer]
-OnBootSec=5h
-OnUnitActiveSec=5h
+OnBootSec=1h
+OnUnitActiveSec=1h
 
 [Install]
 WantedBy=timers.target
@@ -35,5 +35,5 @@ EOF
 systemctl daemon-reload
 systemctl enable --now auto-reboot.timer
 
-echo "Auto reboot every 5 hours is now active!"
+echo "Auto reboot every 1 hour is now active!"
 systemctl status auto-reboot.timer
