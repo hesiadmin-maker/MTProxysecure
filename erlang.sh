@@ -107,12 +107,32 @@ do_configure_os() {
         ubuntu-20.*)
             info "Installing Erlang for Ubuntu 20.04"
             sudo apt update
-            sudo apt install -y wget gnupg2
-            wget -O- https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc | sudo apt-key add -
-            echo "deb https://packages.erlang-solutions.com/ubuntu focal contrib" | sudo tee /etc/apt/sources.list.d/erlang-solutions.list
-            sudo apt update
-            sudo apt install -y esl-erlang=1:25.3.2-1
-            sudo apt install -y erlang-dev erlang-nox make sed diffutils tar
+            sudo apt install -y wget gnupg2 curl
+            
+            # روش جایگزین: نصب مستقیم بسته‌های deb
+            info "Downloading Erlang packages directly"
+            cd /tmp
+            
+            # دانلود بسته‌های مورد نیاز از مخزن رسمی
+            wget https://packages.erlang-solutions.com/erlang/debian/pool/esl-erlang_25.3.2-1~ubuntu~focal_amd64.deb || \
+            wget https://github.com/erlang/otp/releases/download/OTP-25.3.2/otp_src_25.3.2.tar.gz
+            
+            if [ -f "esl-erlang_25.3.2-1~ubuntu~focal_amd64.deb" ]; then
+                info "Installing from deb package"
+                sudo dpkg -i esl-erlang_25.3.2-1~ubuntu~focal_amd64.deb || sudo apt-get install -f -y
+            else
+                info "Installing from source (this will take a while)"
+                sudo apt install -y build-essential libncurses5-dev libssl-dev
+                tar -xzf otp_src_25.3.2.tar.gz
+                cd otp_src_25.3.2
+                ./configure
+                make -j$(nproc)
+                sudo make install
+                cd /tmp
+            fi
+            
+            sudo apt install -y make sed diffutils tar
+            cd $WORKDIR
             ;;
         ubuntu-22.*|ubuntu-23.*|ubuntu-24.*|debian-11)
             info "Installing required APT packages"
@@ -187,7 +207,7 @@ do_build_config() {
                 sudo firewall-cmd --reload
                 ;;
             [Dd]*)
-                warning "Stopping firewalld"
+                warn "Stopping firewalld"
                 sudo systemctl stop firewalld
                 sudo systemctl disable firewalld
                 ;;
