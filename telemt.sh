@@ -249,6 +249,8 @@ ExecStart=$TELEMT_BIN $CONFIG_FILE
 Restart=always
 RestartSec=3
 LimitNOFILE=1000000
+AmbientCapabilities=CAP_NET_BIND_SERVICE CAP_NET_ADMIN
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE CAP_NET_ADMIN
 
 [Install]
 WantedBy=multi-user.target
