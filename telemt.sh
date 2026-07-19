@@ -2,9 +2,10 @@
 set -e
 
 SERVICE_FILE="/etc/systemd/system/telemt.service"
-CONFIG_DIR="/etc/telemet"
-CONFIG_FILE="$CONFIG_DIR/telemet.toml"
+CONFIG_DIR="/etc/telemt"
+CONFIG_FILE="$CONFIG_DIR/telemt.toml"
 TELEMT_BIN="/usr/local/bin/telemt"
+REPO="telemt/telemt"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -32,6 +33,84 @@ show_menu() {
     echo "7) Add/Update Ad Tag"
     echo "0) Exit"
     print_title
+}
+
+detect_arch() {
+    sys_arch="$(uname -m)"
+    case "$sys_arch" in
+        x86_64|amd64)
+            if grep -q "avx2" /proc/cpuinfo 2>/dev/null && grep -q "bmi2" /proc/cpuinfo 2>/dev/null; then
+                echo "x86_64-v3"
+            else
+                echo "x86_64"
+            fi
+            ;;
+        aarch64|arm64) echo "aarch64" ;;
+        *) echo "unsupported" ;;
+    esac
+}
+
+detect_libc() {
+    if ldd --version 2>&1 | grep -qi musl; then
+        echo "musl"
+    else
+        echo "gnu"
+    fi
+}
+
+download_binary() {
+    local version="$1"
+    local arch="$(detect_arch)"
+    local libc="$(detect_libc)"
+    local file_name="telemt-${arch}-linux-${libc}.tar.gz"
+    local temp_dir="$(mktemp -d)"
+    
+    if [ "$version" = "latest" ]; then
+        local url="https://github.com/${REPO}/releases/latest/download/${file_name}"
+    else
+        local url="https://github.com/${REPO}/releases/download/${version}/${file_name}"
+    fi
+    
+    print_info "Downloading from: $url"
+    
+    if ! curl -fsSL "$url" -o "${temp_dir}/${file_name}"; then
+        # Fallback to standard x86_64
+        if [ "$arch" = "x86_64-v3" ]; then
+            print_warn "Falling back to standard x86_64 build..."
+            arch="x86_64"
+            file_name="telemt-${arch}-linux-${libc}.tar.gz"
+            if [ "$version" = "latest" ]; then
+                url="https://github.com/${REPO}/releases/latest/download/${file_name}"
+            else
+                url="https://github.com/${REPO}/releases/download/${version}/${file_name}"
+            fi
+            curl -fsSL "$url" -o "${temp_dir}/${file_name}" || {
+                print_error "Download failed"
+                rm -rf "$temp_dir"
+                return 1
+            }
+        else
+            print_error "Download failed"
+            rm -rf "$temp_dir"
+            return 1
+        fi
+    fi
+    
+    print_info "Extracting archive..."
+    tar -xzf "${temp_dir}/${file_name}" -C "$temp_dir"
+    
+    local binary="$(find "$temp_dir" -type f -name "telemt" 2>/dev/null | head -n 1)"
+    if [ -z "$binary" ]; then
+        print_error "Binary not found in archive"
+        rm -rf "$temp_dir"
+        return 1
+    fi
+    
+    cp "$binary" "$TELEMT_BIN"
+    chmod +x "$TELEMT_BIN"
+    rm -rf "$temp_dir"
+    print_info "Binary installed successfully"
+    return 0
 }
 
 install_telemt() {
@@ -89,42 +168,24 @@ install_telemt() {
         print_info "You can get an Ad Tag later from @MTProxybot"
     fi
     
-    # Workers
-    echo ""
-    read -p "Enter number of workers [default: $(nproc)]: " WORKERS
-    if [[ -z "$WORKERS" ]]; then
-        WORKERS=$(nproc)
-    fi
-    
     echo ""
     print_title
     echo -e "${YELLOW}Starting installation...${NC}"
     print_title
     sleep 2
     
-    # Install dependencies
+    # Install dependencies (only essential, no Rust needed)
     print_info "Installing system dependencies..."
     apt update -qq
-    apt install -y git curl build-essential pkg-config libssl-dev openssl -qq
+    apt install -y curl openssl -qq
     
-    # Install Rust if not present
-    if ! command -v cargo &> /dev/null; then
-        print_info "Installing Rust..."
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-        source "$HOME/.cargo/env"
-    fi
-    
-    # Compile telemt
+    # Download binary (NO COMPILATION!)
     if [[ ! -f "$TELEMT_BIN" ]]; then
-        print_info "Downloading and compiling telemt (2-5 minutes)..."
-        cd /tmp
-        rm -rf telemt
-        git clone --quiet https://github.com/telemt/telemt
-        cd telemt
-        cargo build --release -q
-        cp ./target/release/telemt "$TELEMT_BIN"
-        cd /
-        rm -rf /tmp/telemt
+        print_info "Downloading telemt binary..."
+        if ! download_binary "latest"; then
+            print_error "Failed to download binary"
+            exit 1
+        fi
         print_info "Telemt installed successfully"
     else
         print_info "Telemt already installed"
@@ -184,7 +245,7 @@ After=network.target
 Type=simple
 User=telemt
 Group=telemt
-ExecStart=$TELEMT_BIN -c $CONFIG_FILE
+ExecStart=$TELEMT_BIN $CONFIG_FILE
 Restart=always
 RestartSec=3
 LimitNOFILE=1000000
@@ -203,7 +264,7 @@ EOF
     fi
     
     # Get public IP
-    PUBLIC_IP=$(curl -s ifconfig.me)
+    PUBLIC_IP=$(curl -s ifconfig.me || curl -s api.ipify.org || echo "YOUR_SERVER_IP")
     
     clear
     print_title
@@ -211,7 +272,7 @@ EOF
     print_title
     echo ""
     print_info "Service status:"
-    systemctl status telemt --no-pager --lines=0
+    systemctl status telemt --no-pager --lines=0 || true
     echo ""
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${GREEN}Connection Information:${NC}"
@@ -251,7 +312,7 @@ EOF
 
 show_status() {
     clear
-    systemctl status telemt --no-pager
+    systemctl status telemt --no-pager || true
     read -p "Press Enter to continue..."
 }
 
@@ -271,12 +332,12 @@ uninstall_telemt() {
     echo ""
     read -p "Are you sure you want to uninstall? (y/n): " confirm
     if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
-        systemctl stop telemt 2>/dev/null
-        systemctl disable telemt 2>/dev/null
+        systemctl stop telemt 2>/dev/null || true
+        systemctl disable telemt 2>/dev/null || true
         rm -f "$SERVICE_FILE"
         rm -rf "$CONFIG_DIR"
         rm -f "$TELEMT_BIN"
-        systemctl daemon-reload
+        systemctl daemon-reload || true
         print_info "Telemt uninstalled successfully"
     else
         print_warn "Uninstall cancelled"
@@ -287,7 +348,7 @@ uninstall_telemt() {
 show_link() {
     clear
     if [[ -f "$CONFIG_FILE" ]]; then
-        PUBLIC_IP=$(curl -s ifconfig.me)
+        PUBLIC_IP=$(curl -s ifconfig.me || curl -s api.ipify.org || echo "YOUR_SERVER_IP")
         PORT=$(grep "^port" "$CONFIG_FILE" | awk -F'=' '{print $2}' | tr -d ' ')
         SECRET=$(grep -A1 "\[access.users\]" "$CONFIG_FILE" | tail -1 | awk -F'=' '{print $2}' | tr -d ' "')
         TLS_DOMAIN=$(grep "tls_domain" "$CONFIG_FILE" | awk -F'=' '{print $2}' | tr -d ' "')
