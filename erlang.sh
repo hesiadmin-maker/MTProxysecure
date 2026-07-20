@@ -1,5 +1,6 @@
 #!/bin/bash # Automatic interactive installer for mtproto proxy https://github.com/seriyps/mtproto_proxy
 # Supported OS:
+# - Ubuntu 26.xx
 # - Ubuntu 24.xx
 # - Ubuntu 23.xx
 # - Ubuntu 22.xx
@@ -107,34 +108,23 @@ do_configure_os() {
         ubuntu-20.*)
             info "Installing Erlang for Ubuntu 20.04"
             sudo apt update
-            sudo apt install -y wget gnupg2 curl
+            sudo apt install -y wget gnupg2 curl build-essential libncurses5-dev libssl-dev
             
-            # روش جایگزین: نصب مستقیم بسته‌های deb
-            info "Downloading Erlang packages directly"
+            # روش جایگزین: کامپایل از سورس
+            info "Downloading and compiling Erlang from source (this will take a few minutes)"
             cd /tmp
-            
-            # دانلود بسته‌های مورد نیاز از مخزن رسمی
-            wget https://packages.erlang-solutions.com/erlang/debian/pool/esl-erlang_25.3.2-1~ubuntu~focal_amd64.deb || \
             wget https://github.com/erlang/otp/releases/download/OTP-25.3.2/otp_src_25.3.2.tar.gz
-            
-            if [ -f "esl-erlang_25.3.2-1~ubuntu~focal_amd64.deb" ]; then
-                info "Installing from deb package"
-                sudo dpkg -i esl-erlang_25.3.2-1~ubuntu~focal_amd64.deb || sudo apt-get install -f -y
-            else
-                info "Installing from source (this will take a while)"
-                sudo apt install -y build-essential libncurses5-dev libssl-dev
-                tar -xzf otp_src_25.3.2.tar.gz
-                cd otp_src_25.3.2
-                ./configure
-                make -j$(nproc)
-                sudo make install
-                cd /tmp
-            fi
+            tar -xzf otp_src_25.3.2.tar.gz
+            cd otp_src_25.3.2
+            ./configure
+            make -j$(nproc)
+            sudo make install
+            cd /tmp
             
             sudo apt install -y make sed diffutils tar
             cd $WORKDIR
             ;;
-        ubuntu-22.*|ubuntu-23.*|ubuntu-24.*|debian-11)
+        ubuntu-22.*|ubuntu-23.*|ubuntu-24.*|ubuntu-26.*|debian-11)
             info "Installing required APT packages"
             sudo apt update
             sudo apt install -y erlang-nox erlang-dev make sed diffutils tar
