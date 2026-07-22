@@ -47,11 +47,12 @@ User=mtproxy
 WorkingDirectory=/opt/mtproxy
 ExecStart=/opt/mtproxy/mtproto-proxy \\
   -p 8888 \\
-  -H 144 \\
-  -S 79e7010200010007f0030386e24c3add \\
+  -H 443 \\
+  -S 1603010200010001fc030386e24c3add \\
   --http-stats \\
   --aes-pwd proxy-secret proxy-multi.conf \\
   -P 6d27cee200722a40c3945ede471df4a1 \\
+  -D biscotti.yektanet.com \\
   -M 0
 Restart=always
 RestartSec=3
