@@ -1,39 +1,48 @@
 #!/bin/bash
 
-# Create reboot script
-cat << 'EOF' > /usr/local/bin/auto-reboot.sh
-#!/bin/bash
-/sbin/reboot
-EOF
+echo "🔄 تنظیم ریبوت خودکار هر ساعت..."
 
-chmod +x /usr/local/bin/auto-reboot.sh
+# 1. تنظیم timezone
+echo "⏱️ تنظیم timezone به Asia/Tehran..."
+sudo timedatectl set-timezone Asia/Tehran
 
-# Create systemd service
-cat << 'EOF' > /etc/systemd/system/auto-reboot.service
+# 2. پیدا کردن مسیر دقیق reboot
+REBOOT_PATH=$(command -v reboot)
+echo "📍 مسیر reboot پیدا شد: $REBOOT_PATH"
+
+# 3. ساخت فایل سرویس
+echo "📦 ساخت فایل hourly-reboot.service..."
+sudo tee /etc/systemd/system/hourly-reboot.service > /dev/null <<EOF
 [Unit]
-Description=Auto Reboot Script
+Description=Hourly Reboot
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/auto-reboot.sh
+ExecStart=$REBOOT_PATH
+User=root
 EOF
 
-# Create systemd timer (1 hour)
-cat << 'EOF' > /etc/systemd/system/auto-reboot.timer
+# 4. ساخت فایل تایمر
+echo "⏰ ساخت فایل hourly-reboot.timer..."
+sudo tee /etc/systemd/system/hourly-reboot.timer > /dev/null <<EOF
 [Unit]
-Description=Reboot every 1 hour
+Description=Reboot system every hour
 
 [Timer]
-OnBootSec=1h
-OnUnitActiveSec=1h
+OnCalendar=hourly
+Persistent=true
 
 [Install]
 WantedBy=timers.target
 EOF
 
-# Reload systemd and enable timer
-systemctl daemon-reload
-systemctl enable --now auto-reboot.timer
+# 5. فعال‌سازی تایمر
+echo "🚀 فعال‌سازی تایمر..."
+sudo systemctl daemon-reload
+sudo systemctl enable --now hourly-reboot.timer
 
-echo "Auto reboot every 1 hour is now active!"
-systemctl status auto-reboot.timer
+# 6. نمایش زمان‌بندی
+echo "🔍 بررسی زمان اجرای بعدی:"
+systemctl list-timers --all | grep hourly-reboot
+
+echo "✅ تنظیمات کامل شد. سرور هر ساعت ریبوت خواهد شد."
