@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🔄 تنظیم ریبوت خودکار هر ساعت..."
+echo "🔄 تنظیم ریبوت خودکار هر ۱۵ دقیقه..."
 
 # 1. تنظیم timezone
 echo "⏱️ تنظیم timezone به Asia/Tehran..."
@@ -11,10 +11,10 @@ REBOOT_PATH=$(command -v reboot)
 echo "📍 مسیر reboot پیدا شد: $REBOOT_PATH"
 
 # 3. ساخت فایل سرویس
-echo "📦 ساخت فایل hourly-reboot.service..."
-sudo tee /etc/systemd/system/hourly-reboot.service > /dev/null <<EOF
+echo "📦 ساخت فایل every-15min-reboot.service..."
+sudo tee /etc/systemd/system/every-15min-reboot.service > /dev/null <<EOF
 [Unit]
-Description=Hourly Reboot
+Description=Reboot Every 15 Minutes
 
 [Service]
 Type=oneshot
@@ -23,13 +23,13 @@ User=root
 EOF
 
 # 4. ساخت فایل تایمر
-echo "⏰ ساخت فایل hourly-reboot.timer..."
-sudo tee /etc/systemd/system/hourly-reboot.timer > /dev/null <<EOF
+echo "⏰ ساخت فایل every-15min-reboot.timer..."
+sudo tee /etc/systemd/system/every-15min-reboot.timer > /dev/null <<EOF
 [Unit]
-Description=Reboot system every hour
+Description=Reboot system every 15 minutes
 
 [Timer]
-OnCalendar=hourly
+OnCalendar=*:0/15
 Persistent=true
 
 [Install]
@@ -39,10 +39,10 @@ EOF
 # 5. فعال‌سازی تایمر
 echo "🚀 فعال‌سازی تایمر..."
 sudo systemctl daemon-reload
-sudo systemctl enable --now hourly-reboot.timer
+sudo systemctl enable --now every-15min-reboot.timer
 
 # 6. نمایش زمان‌بندی
 echo "🔍 بررسی زمان اجرای بعدی:"
-systemctl list-timers --all | grep hourly-reboot
+systemctl list-timers --all | grep every-15min-reboot
 
-echo "✅ تنظیمات کامل شد. سرور هر ساعت ریبوت خواهد شد."
+echo "✅ تنظیمات کامل شد. سرور هر ۱۵ دقیقه ریبوت خواهد شد."
